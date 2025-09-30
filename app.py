@@ -10,11 +10,41 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     handlers=[
-        logging.StreamHandler()  # Для вывода в консоль Docker
+        logging.StreamHandler()
     ]
 )
 
 logger = logging.getLogger(__name__)
+
+def check_environment():
+    """Проверяем все environment variables"""
+    logger.info("🔍 Проверяем environment variables...")
+    
+    # Получаем все переменные окружения
+    all_env_vars = dict(os.environ)
+    
+    # Логируем все переменные (без значений для безопасности)
+    logger.info(f"📋 Найдено переменных окружения: {len(all_env_vars)}")
+    
+    # Проверяем конкретно TELEGRAM_BOT_TOKEN
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    
+    if token:
+        logger.info("✅ TELEGRAM_BOT_TOKEN: найден")
+        # Показываем только первые 10 символов для безопасности
+        logger.info(f"🔐 Токен (первые 10 символов): {token[:10]}...")
+        return token
+    else:
+        logger.error("❌ TELEGRAM_BOT_TOKEN: не найден!")
+        logger.info("💡 Доступные переменные окружения:")
+        for key in sorted(all_env_vars.keys()):
+            if any(word in key.lower() for word in ['token', 'key', 'secret', 'pass']):
+                # Для чувствительных переменных показываем только наличие
+                logger.info(f"   {key}: [скрыто]")
+            else:
+                # Для остальных показываем значение
+                logger.info(f"   {key}: {all_env_vars[key]}")
+        return None
 
 class ArticleFetcher:
     def __init__(self):
@@ -120,16 +150,17 @@ async def help(update, context):
 
 def main():
     """Основная функция запуска бота"""
-    # Получаем токен из environment variables
-    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    logger.info("🚀 Запускаем Fashion Bot...")
+    
+    # Проверяем environment variables
+    token = check_environment()
     
     if not token:
-        logger.error("❌ ОШИБКА: TELEGRAM_BOT_TOKEN не установлен!")
-        logger.error("💡 Добавьте TELEGRAM_BOT_TOKEN в Environment Variables на Render")
+        logger.error("❌ Не могу запустить бота без TELEGRAM_BOT_TOKEN")
+        logger.info("🔄 Перезапуск через 10 секунд...")
+        time.sleep(10)
+        main()  # Рекурсивный перезапуск
         return
-    
-    logger.info("✅ TELEGRAM_BOT_TOKEN найден")
-    logger.info("🚀 Запускаем Fashion Bot...")
     
     try:
         # Создаем приложение бота
@@ -148,7 +179,9 @@ def main():
         
     except Exception as e:
         logger.error(f"❌ Критическая ошибка: {e}")
-        time.sleep(5)  # Пауза перед перезапуском
+        logger.info("🔄 Перезапуск через 10 секунд...")
+        time.sleep(10)
+        main()  # Рекурсивный перезапуск
 
 if __name__ == "__main__":
     main()
