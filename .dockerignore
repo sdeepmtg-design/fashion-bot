@@ -1,0 +1,12 @@
+.git
+.gitignore
+README.md
+.DS_Store
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+fashion-env
+logs
+data

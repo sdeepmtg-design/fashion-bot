@@ -1,15 +1,20 @@
 import os
 import logging
+import time
 from telegram.ext import Application, CommandHandler
 import feedparser
-from datetime import datetime
 from bs4 import BeautifulSoup
 
-# Настройка логирования
+# Настройка логирования для Docker
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    handlers=[
+        logging.StreamHandler()  # Для вывода в консоль Docker
+    ]
 )
+
+logger = logging.getLogger(__name__)
 
 class ArticleFetcher:
     def __init__(self):
@@ -26,10 +31,10 @@ class ArticleFetcher:
         
         for feed_url in self.rss_feeds:
             try:
-                print(f"📡 Загружаем статьи из: {feed_url}")
+                logger.info(f"Загружаем статьи из: {feed_url}")
                 feed = feedparser.parse(feed_url)
                 
-                for entry in feed.entries[:3]:  # Берем первые 3 статьи
+                for entry in feed.entries[:3]:
                     article = {
                         'title': entry.title,
                         'link': entry.link,
@@ -42,7 +47,7 @@ class ArticleFetcher:
                         return articles
                         
             except Exception as e:
-                print(f"❌ Ошибка загрузки {feed_url}: {e}")
+                logger.error(f"Ошибка загрузки {feed_url}: {e}")
         
         return articles[:num_articles]
     
@@ -98,7 +103,7 @@ async def latest(update, context):
                 disable_web_page_preview=True
             )
         except Exception as e:
-            print(f"Ошибка отправки статьи: {e}")
+            logger.error(f"Ошибка отправки статьи: {e}")
             await update.message.reply_text(f"📰 {article['title']}\n🔗 {article['link']}")
 
 async def help(update, context):
@@ -119,27 +124,31 @@ def main():
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     
     if not token:
-        print("❌ ОШИБКА: TELEGRAM_BOT_TOKEN не установлен!")
-        print("💡 Добавьте TELEGRAM_BOT_TOKEN в Environment Variables на Render")
+        logger.error("❌ ОШИБКА: TELEGRAM_BOT_TOKEN не установлен!")
+        logger.error("💡 Добавьте TELEGRAM_BOT_TOKEN в Environment Variables на Render")
         return
     
-    print("✅ TELEGRAM_BOT_TOKEN найден")
-    print("🚀 Запускаем Fashion Bot...")
+    logger.info("✅ TELEGRAM_BOT_TOKEN найден")
+    logger.info("🚀 Запускаем Fashion Bot...")
     
-    # Создаем приложение бота
-    app = Application.builder().token(token).build()
-    
-    # Регистрируем команды
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("latest", latest)) 
-    app.add_handler(CommandHandler("help", help))
-    
-    print("🤖 Бот запущен и готов к работе!")
-    print("📱 Напишите /start вашему боту в Telegram")
-    print("⏹️  Для остановки нажмите Ctrl+C")
-    
-    # Запускаем бота
-    app.run_polling()
+    try:
+        # Создаем приложение бота
+        app = Application.builder().token(token).build()
+        
+        # Регистрируем команды
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("latest", latest)) 
+        app.add_handler(CommandHandler("help", help))
+        
+        logger.info("🤖 Бот запущен и готов к работе!")
+        logger.info("📱 Напишите /start вашему боту в Telegram")
+        
+        # Запускаем бота
+        app.run_polling()
+        
+    except Exception as e:
+        logger.error(f"❌ Критическая ошибка: {e}")
+        time.sleep(5)  # Пауза перед перезапуском
 
 if __name__ == "__main__":
     main()
